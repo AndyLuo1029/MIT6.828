@@ -102,11 +102,11 @@ boot_alloc(uint32_t n)
 	// to a multiple of PGSIZE.
 	//
 	// LAB 2: Your code here.
-	res = nextfree;
+	result = nextfree;
 	nextfree = ROUNDUP(nextfree+n, PGSIZE);
 	if((uint32_t)nextfree - KERNBASE > (npages * PGSIZE)) panic("we're out of memory!\n");
 
-	return res;
+	return result;
 }
 
 // Set up a two-level page table:
@@ -296,7 +296,7 @@ page_alloc(int alloc_flags)
 	res = page_free_list;
 	page_free_list = res->pp_link;
 	//Be sure to set the pp_link field of the allocated page to NULL
-	res->pplink = NULL;
+	res->pp_link = NULL;
 	
 	//If (alloc_flags & ALLOC_ZERO), fills the entire 
 	//returned physical page with '\0' bytes.
@@ -319,7 +319,7 @@ page_free(struct PageInfo *pp)
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
 	
-	if(pp->pp_ref != 0 || !pp->pp_link) panic("page_free: freed a not free page!\n");
+	if(pp->pp_ref != 0 || pp->pp_link != NULL) panic("page_free: freed a not free page!\n");
 	
 	pp->pp_link = page_free_list;
 	page_free_list = pp;
