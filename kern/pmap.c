@@ -362,7 +362,29 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	return NULL;
+	struct PageInfo * new_pg = NULL;
+	
+	pde_t pgdir_entry = pgdir[PDX(va)];
+	
+	if(!(pgdir_entry & PTE_P)){
+		// page doesn't exist, check the create
+		if(create){
+			new_pg = page_alloc(1);
+			if(new_pg == NULL){
+				// page_alloc failed
+				return NULL;
+			}
+			else{
+				new_pg->pp_ref++;
+				pgdir_entry = (page2pa(new_pg) | PTE_P | PTE_W | PTE_U);
+			}
+		}
+		else return NULL;
+	}
+	
+	pte_t * pg_base_addr = KADDR(PTE_ADDR(pgdir_entry));
+	
+	return &pg_base_addr[PTX(va)];
 }
 
 //
@@ -380,6 +402,18 @@ static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
+	int now_v_addr = 0;
+	pte_t * page_entry = NULL;
+	
+	for(now_v_addr = 0; now_v_addr < size; now_v_addr += PGSIZE)
+	{
+		page_entry = pgdir_walk(pgdir,(void *)va, 1);
+		if(page_entry == NULL) panic("boot_map_region():page_alloc() falied!\n");
+		// Use permission bits perm|PTE_P for the entries
+		*page_entry = (pa | perm | PTE_P);
+		pa += PGSIZE;
+		va += PGSIZE;
+	}
 }
 
 //
@@ -411,6 +445,23 @@ int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
 	// Fill this function in
+	pte_t * pg_entry = pgdir_walk(pgdir, va, 1);
+	
+	if( pg_entry == NULL) return -E_NO_MEM;
+	
+	
+	pp->pp_ref++;
+	
+	
+	if( (*pg_entry) & PTE_P ){
+		page_remove(pgdir, va);
+		tlb_invalidate(pgdir, va);
+	}
+	
+	*pg_entry = (page2pa(pp) | perm | PTE_P);
+	pgdir[PDX(va)] |= perm;
+	
+	
 	return 0;
 }
 
@@ -429,7 +480,18 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	// Fill this function in
-	return NULL;
+	pte_t * entry = pgdir_walk(pgdir, va, 0);
+	// Return NULL if there is no page mapped at va.
+	if(entry == NULL || !(*entry & PTE_P)) return NULL;
+	
+	
+	struct PageInfo *res = pa2page(PTE_ADDR(*entry));
+	
+	if(pte_store != NULL){
+		*pte_store = entry;
+	}
+	
+	return res;
 }
 
 //
@@ -451,6 +513,15 @@ void
 page_remove(pde_t *pgdir, void *va)
 {
 	// Fill this function in
+	pte_t * ptr = NULL;
+	struct PageInfo * page = page_lookup(pgdir, va, &ptr);
+	// If there is no physical page at that address, silently does nothing.
+	if(page == NULL) return;
+	else{
+		page_decref(page);
+		*ptr = 0;
+		tlb_invalidate(pgdir, va);
+	}
 }
 
 //
@@ -717,6 +788,8 @@ check_page(void)
 	// free pp0 and try again: pp0 should be used for page table
 	page_free(pp0);
 	assert(page_insert(kern_pgdir, pp1, 0x0, PTE_W) == 0);
+	cprintf("%d\n",PTE_ADDR(kern_pgdir[0]));
+	cprintf("%d\n",page2pa(pp0));
 	assert(PTE_ADDR(kern_pgdir[0]) == page2pa(pp0));
 	assert(check_va2pa(kern_pgdir, 0x0) == page2pa(pp1));
 	assert(pp1->pp_ref == 1);
