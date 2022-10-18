@@ -176,6 +176,7 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
+	boot_map_region(kern_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -188,6 +189,7 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
+	boot_map_region(kern_pgdir, KSTACKTOP-KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W);
 
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
@@ -197,6 +199,7 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
+	boot_map_region(kern_pgdir, KERNBASE, 0xffffffff - KERNBASE, 0, PTE_W);
 
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
@@ -301,7 +304,7 @@ page_alloc(int alloc_flags)
 	//If (alloc_flags & ALLOC_ZERO), fills the entire 
 	//returned physical page with '\0' bytes.
 	if(alloc_flags & ALLOC_ZERO){
-		memset(page2kva(res), '\0', PGSIZE);
+		memset(page2kva(res), 0, PGSIZE);
 	}
 	
 
@@ -362,29 +365,30 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	struct PageInfo * new_pg = NULL;
+	unsigned int page_off;
+        pte_t * page_base = NULL;
+        struct PageInfo* new_page = NULL;
+        
+        unsigned int dic_off = PDX(va);
+        pde_t * dic_entry_ptr = pgdir + dic_off;
+  
+       if(!(*dic_entry_ptr & PTE_P))
+       {
+             if(create)
+             {
+                    new_page = page_alloc(1);
+                    if(new_page == NULL) return NULL;
+                    new_page->pp_ref++;
+                    *dic_entry_ptr = (page2pa(new_page) | PTE_P | PTE_W | PTE_U);
+             }
+            else
+                return NULL;      
+       }  
+    
+       page_off = PTX(va);
+       page_base = KADDR(PTE_ADDR(*dic_entry_ptr));
+       return &page_base[page_off];
 	
-	pde_t pgdir_entry = pgdir[PDX(va)];
-	
-	if(!(pgdir_entry & PTE_P)){
-		// page doesn't exist, check the create
-		if(create){
-			new_pg = page_alloc(1);
-			if(new_pg == NULL){
-				// page_alloc failed
-				return NULL;
-			}
-			else{
-				new_pg->pp_ref++;
-				pgdir_entry = (page2pa(new_pg) | PTE_P | PTE_W | PTE_U);
-			}
-		}
-		else return NULL;
-	}
-	
-	pte_t * pg_base_addr = KADDR(PTE_ADDR(pgdir_entry));
-	
-	return &pg_base_addr[PTX(va)];
 }
 
 //
@@ -767,6 +771,9 @@ check_page(void)
 	assert((pp0 = page_alloc(0)));
 	assert((pp1 = page_alloc(0)));
 	assert((pp2 = page_alloc(0)));
+	//cprintf("pp0:%x\n",pp0);
+	//cprintf("%x\n",pp1);
+	//cprintf("pp2:%x\n",pp2);
 
 	assert(pp0);
 	assert(pp1 && pp1 != pp0);
@@ -788,8 +795,8 @@ check_page(void)
 	// free pp0 and try again: pp0 should be used for page table
 	page_free(pp0);
 	assert(page_insert(kern_pgdir, pp1, 0x0, PTE_W) == 0);
-	cprintf("%d\n",PTE_ADDR(kern_pgdir[0]));
-	cprintf("%d\n",page2pa(pp0));
+	//cprintf("%x\n",PTE_ADDR(kern_pgdir[0]));
+	//cprintf("%x\n",page2pa(pp0));
 	assert(PTE_ADDR(kern_pgdir[0]) == page2pa(pp0));
 	assert(check_va2pa(kern_pgdir, 0x0) == page2pa(pp1));
 	assert(pp1->pp_ref == 1);
