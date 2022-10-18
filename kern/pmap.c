@@ -365,30 +365,30 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	unsigned int page_off;
-        pte_t * page_base = NULL;
-        struct PageInfo* new_page = NULL;
-        
-        unsigned int dic_off = PDX(va);
-        pde_t * dic_entry_ptr = pgdir + dic_off;
+        struct PageInfo* new_pg = NULL;
+        pde_t * pgdir_entry_ptr = pgdir + PDX(va);
   
-       if(!(*dic_entry_ptr & PTE_P))
+       if(!(*pgdir_entry_ptr & PTE_P))
        {
+       // The pgdir_entry doesn't exist, check the create
              if(create)
              {
-                    new_page = page_alloc(1);
-                    if(new_page == NULL) return NULL;
-                    new_page->pp_ref++;
-                    *dic_entry_ptr = (page2pa(new_page) | PTE_P | PTE_W | PTE_U);
+		new_pg = page_alloc(1);
+	    	if(new_pg == NULL){
+	    		// the page_alloc failed
+			return NULL;
+		}
+		else{
+	    		new_pg->pp_ref++;
+	    		*pgdir_entry_ptr = (page2pa(new_pg) | PTE_P | PTE_W | PTE_U);
+	    	}
              }
             else
                 return NULL;      
        }  
     
-       page_off = PTX(va);
-       page_base = KADDR(PTE_ADDR(*dic_entry_ptr));
-       return &page_base[page_off];
-	
+       pte_t * page_base = KADDR(PTE_ADDR(*pgdir_entry_ptr));
+       return &page_base[PTX(va)];	
 }
 
 //
@@ -464,8 +464,6 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	
 	*pg_entry = (page2pa(pp) | perm | PTE_P);
 	pgdir[PDX(va)] |= perm;
-	
-	
 	return 0;
 }
 
