@@ -25,6 +25,7 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "Display the backtrace of the function stack", mon_backtrace },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -59,6 +60,32 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
+	
+	uint32_t *ebp;
+	struct Eipdebuginfo info;
+	int res;
+	
+	ebp = (uint32_t *)read_ebp();
+	
+	cprintf("Stack backtrace:\n");
+	
+	while(ebp){
+		cprintf(" ebp %08x eip %08x args %08x %08x %08x %x\n",ebp,ebp[1],ebp[2],ebp[3],ebp[4],ebp[5],ebp[6]);
+		memset(&info,0,sizeof(struct Eipdebuginfo)); //initialize the epidebuginfo struct
+		
+		res = debuginfo_eip(ebp[1],&info);
+		
+		if(res != 0){
+			cprintf("ERROR!");
+		}
+		
+		else{
+			cprintf("\t%s:%d: %.*s+%u\n", info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, ebp[1] - info.eip_fn_addr);
+		}
+		
+		ebp = (uint32_t *)*ebp;
+	}
+	
 	return 0;
 }
 
@@ -113,6 +140,7 @@ monitor(struct Trapframe *tf)
 {
 	char *buf;
 
+	cprintf("6828 decimal is %o octal!\n", 6828);
 	cprintf("Welcome to the JOS kernel monitor!\n");
 	cprintf("Type 'help' for a list of commands.\n");
 
