@@ -356,11 +356,45 @@ load_icode(struct Env *e, uint8_t *binary)
 	//  What?  (See env_run() and env_pop_tf() below.)
 
 	// LAB 3: Your code here.
-
+	
+	struct Proghdr *ph, *eph;
+	struct Elf* elfh = (struct Elf *) binary;
+	
+	if (elfh->e_magic != ELF_MAGIC) panic("load_icode: invalid ELF file!");
+	
+	// switch to the env's address space
+	lcr3(PADDR(e->env_pgdir));
+	
+	ph = (struct Proghdr *)(binary + elfh->e_phoff);
+	eph = ph + elfh->e_phnum;
+	
+	for(;ph < eph; ph++){
+		//  You should only load segments with ph->p_type == ELF_PROG_LOAD.
+		if (ph->p_type == ELF_PROG_LOAD){
+			//  (The ELF header should have ph->p_filesz <= ph->p_memsz.)
+			if (ph->p_filesz > ph->p_memsz) panic("load_icode: The size of ELF file is bigger than memsz!");
+			//  Each segment's virtual address can be found in ph->p_va
+			//  and its size in memory can be found in ph->p_memsz.
+			region_alloc(e, (void *)ph->p_va, ph->p_memsz);
+			//  The ph->p_filesz bytes from the ELF binary, starting at
+			//  'binary + ph->p_offset', should be copied to virtual address ph->p_va.
+			memcpy((void *)ph->p_va, (void*)(binary + ph->p_offset), ph->p_filesz);
+			//  Any remaining memory bytes should be cleared to zero.
+			memset((void *)(ph->p_va + ph->p_filesz), 0, ph->p_memsz - ph->p_filesz);
+		}
+	}
+	
+	//  You must also do something with the program's entry point
+	e->env_tf.tf_eip = elfh->e_entry;
+	
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
 
 	// LAB 3: Your code here.
+	region_alloc(e, (void*)(USTACKTOP - PGSIZE), PGSIZE);
+	
+	//switch back
+	lcr3(PADDR(kern_pgdir));
 }
 
 //
