@@ -66,6 +66,49 @@ trap_init(void)
 
 	// LAB 3: Your code here.
 
+/* You shouldn't call a TRAPHANDLER function from C, but you may
+ * need to _declare_ one in C (for instance, to get a function pointer
+ * during IDT setup).  You can declare the function with void NAME();
+ * where NAME is the argument passed to TRAPHANDLER.
+*/
+	void handler_divide();
+	void handler_debug();
+	void handler_nmi();
+	void handler_brkpt();
+	void handler_ovfl();
+	void handler_bounds();
+	void handler_illop();
+	void handler_ndevice();
+	void handler_dbft();
+	void handler_tss();
+	void handler_segnp();
+	void handler_stack();
+	void handler_gpflt();
+	void handler_pgflt();
+	void handler_fperr();
+	void handler_align();
+	void handler_mchk();
+	void handler_simderr();
+
+	SETGATE(idt[T_DIVIDE], 0, GD_KT, &handler_divide, 0)
+	SETGATE(idt[T_DEBUG], 0, GD_KT, &handler_debug, 0)
+	SETGATE(idt[T_NMI], 0, GD_KT, &handler_nmi, 0)
+	SETGATE(idt[T_BRKPT], 0, GD_KT, &handler_brkpt, 0)
+	SETGATE(idt[T_OFLOW], 0, GD_KT, &handler_ovfl, 0)
+	SETGATE(idt[T_BOUND], 0, GD_KT, &handler_bounds, 0)
+	SETGATE(idt[T_ILLOP], 0, GD_KT, &handler_illop, 0)
+	SETGATE(idt[T_DEVICE], 0, GD_KT, &handler_ndevice, 0)
+	SETGATE(idt[T_DBLFLT], 0, GD_KT, &handler_dbft, 0)
+	SETGATE(idt[T_TSS], 0, GD_KT, &handler_tss, 0)
+	SETGATE(idt[T_SEGNP], 0, GD_KT, &handler_segnp, 0)
+	SETGATE(idt[T_STACK], 0, GD_KT, &handler_stack, 0)
+	SETGATE(idt[T_GPFLT], 0, GD_KT, &handler_gpflt, 0)
+	SETGATE(idt[T_PGFLT], 0, GD_KT, &handler_pgflt, 0)
+	SETGATE(idt[T_FPERR], 0, GD_KT, &handler_fperr, 0)
+	SETGATE(idt[T_ALIGN], 0, GD_KT, &handler_align, 0)
+	SETGATE(idt[T_MCHK], 0, GD_KT, &handler_mchk, 0)
+	SETGATE(idt[T_SIMDERR], 0, GD_KT, &handler_simderr, 0)
+
 	// Per-CPU setup 
 	trap_init_percpu();
 }
