@@ -64,6 +64,7 @@
 	TRAPHANDLER(handler_align, T_ALIGN)
 	TRAPHANDLER_NOEC(handler_mchk, T_MCHK)
 	TRAPHANDLER_NOEC(handler_simderr, T_SIMDERR)
+	TRAPHANDLER_NOEC(handler_syscall, T_SYSCALL)
 
 /*
  * Lab 3: Your code here for _alltraps
