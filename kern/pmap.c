@@ -579,7 +579,24 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
-
+	
+	uint32_t addr = (uint32_t)va;
+	uint32_t start = ROUNDDOWN(addr, PGSIZE);
+	uint32_t end = ROUNDUP(addr+len, PGSIZE);
+	
+	while(start < end) {
+		pte_t * pte = pgdir_walk(env->env_pgdir, (void*)start ,0);
+		// A user program can access a virtual address if (1) the address is below
+		// ULIM, and (2) the page table gives it permission.
+		if(start >= ULIM || pte == NULL || 
+			!(*pte &PTE_P) || (*pte & perm) != perm){
+			// If there is an error, set the 'user_mem_check_addr' variable to the first
+			// erroneous virtual address.
+			user_mem_check_addr = (start < addr)?addr:start;
+			return -E_FAULT;
+		}
+		start += PGSIZE;
+	}
 	return 0;
 }
 
